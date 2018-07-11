@@ -28,12 +28,13 @@ if __name__ == '__main__':
 		sun_processor.get_class_information()
 		figrim_processor.get_class_information()
 		sun_processor.merge(figrim_processor)
-
+		
+		if 'xls' in args:
+			sun_processor.write_to_xls(args['xls'])
 		if 'log' in args:
 			sun_processor.print_class_information(args['log'])
 		if 'crop' in args:
 			sun_processor.crop_thresholded_images(args['crop'])
-		if 'xls' in args:
-			sun_processor.write_to_xls(args['xls'])
+
 	else:
 		print('Run SUNProcessing with -h to see possible arguments')	
