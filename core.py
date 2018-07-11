@@ -10,6 +10,15 @@ from . import random
 PIXEL_WIDTH_THRESHOLD = 700
 PIXEL_HEIGHT_THRESHOLD = 700
 NUMBER_OF_PARTICIPANTS = 50
+NUMBER_OF_UNIQUE_RUNS = 8
+NUMBER_OF_SHARED_RUNS = 1
+UNIQUE_IMAGES_PER_UNIQUE_RUN = 56
+SHARED_IMAGES_PER_UNIQUE_RUN = 8
+SHARED_IMAGES_PER_SHARED_RUN = 64
+
+CROPPED_IMAGE_LIMIT = NUMBER_OF_PARTICIPANTS * NUMBER_OF_UNIQUE_RUNS * UNIQUE_IMAGES_PER_UNIQUE_RUN + 
+	SHARED_IMAGES_PER_UNIQUE_RUN*NUMBER_OF_UNIQUE_RUNS + SHARED_IMAGES_PER_SHARED_RUN
+
 FIGRAM_DATABASE_KEY = "SCENES_700x700"
 SUN_DATABASE_KEY = "SUN397"
 
@@ -127,6 +136,7 @@ class Processor:
 	def crop_thresholded_images(self, out_root):
 		out_images = os.path.abspath(os.path.join(out_root, 'cropped'))
 
+
 		key_list = [*list(self.thresholded_classes[FIGRAM_DATABASE_KEY].keys()),
 			*sorted( list(self.thresholded_classes_merged.keys()), 
 				key = lambda ckey: len(list(self.thresholded_classes_merged[ckey].keys())),
@@ -134,6 +144,7 @@ class Processor:
 			)
 		]
 		class_order_descending = list(collections.OrderedDict.fromkeys(key_list))
+		cropped_image_count = 0 
 
 		for img_class in class_order_descending:
 
@@ -148,17 +159,28 @@ class Processor:
 					)
 				elif SUN_DATABASE_KEY in self.thresholded_classes_merged[img_class][img_name]:
 					with Image.open(self.thresholded_classes_merged[img_class][img_name][SUN_DATABASE_KEY]) as image:
-						extra_width = image.size[0] - PIXEL_WIDTH_THRESHOLD
-						extra_height = image.size[1] - PIXEL_HEIGHT_THRESHOLD
+
+						aspect = image.size[0]/image.size[1]
+						resized =None
+						if aspect >= 1:
+							resized = image.resize((int(PIXEL_WIDTH_THRESHOLD*aspect), PIXEL_WIDTH_THRESHOLD))
+						else:
+							resized = image.resize((PIXEL_WIDTH_THRESHOLD, int(PIXEL_WIDTH_THRESHOLD/aspect)))
+
+						extra_width = resized.size[0] - PIXEL_WIDTH_THRESHOLD
+						extra_height = resized.size[1] - PIXEL_HEIGHT_THRESHOLD
 						
 						left = random.randrange(extra_width+1)
 						top = random.randrange(extra_height+1)
 						right = left + PIXEL_WIDTH_THRESHOLD
 						bottom = top + PIXEL_HEIGHT_THRESHOLD
 
-						cropped_img = image.crop((left, top, right, bottom))
+						cropped_img = resized.crop((left, top, right, bottom))
 
 						cropped_img.convert('RGB').save(os.path.join(outpath, img_name))
+
+			if cropped_image_count > cropped_img_limit:
+				break
 
 
 
