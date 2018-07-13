@@ -22,11 +22,15 @@ if __name__ == '__main__':
 	args = vars(parser.parse_args())
 	args = {k: v for k, v in args.items() if v}
 
+	#: if the user has entered both the SUN and FIGRIM dataset locations
 	if 'SUN' in args and 'FIGRIM' in  args:
+		#: find all images in each database, along with images above threshold
 		sun_processor = SUNProcessing.Processor(args['SUN'])
 		figrim_processor = SUNProcessing.Processor(args['FIGRIM'])
 		sun_processor.get_class_information()
 		figrim_processor.get_class_information()
+
+		#: merge the information of both datasets 
 		sun_processor.merge(figrim_processor)
 		
 		if 'xls' in args:
