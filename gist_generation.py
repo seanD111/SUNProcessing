@@ -11,13 +11,6 @@ FIGRAM_DATABASE_KEY = "SCENES_700x700"
 SUN_DATABASE_KEY = "SUN397"
 CROPPED_DIR = "/home/mjia/Downloads/cropped"
 
-#initial works
-with open('/media/mjia/Data/CNN-fMRI/Summary_info.json') as f:
-    data = json.load(f)
-
-sum = 0
-for key in data:
-    sum += len(data[key])
 #all images from figram will be selected
 all_files = glob.glob( CROPPED_DIR + '/*/*.jpg', recursive = True)
 gistf = numpy.ones((960, len(all_files)))

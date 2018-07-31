@@ -6,27 +6,9 @@ from . import Image
 from . import openpyxl
 from . import shutil
 from . import random
-
-## CONSTANTS ##
-
-#: minimum width and height of images 
-PIXEL_WIDTH_THRESHOLD = 700
-PIXEL_HEIGHT_THRESHOLD = 700
-
-#: experimental setup constants
-NUMBER_OF_PARTICIPANTS = 50
-NUMBER_OF_UNIQUE_RUNS = 8
-NUMBER_OF_SHARED_RUNS = 1
-UNIQUE_IMAGES_PER_UNIQUE_RUN = 56
-SHARED_IMAGES_PER_UNIQUE_RUN = 8
-SHARED_IMAGES_PER_SHARED_RUN = 64
-
-CROPPED_IMAGE_LIMIT = NUMBER_OF_PARTICIPANTS * NUMBER_OF_UNIQUE_RUNS * UNIQUE_IMAGES_PER_UNIQUE_RUN + SHARED_IMAGES_PER_UNIQUE_RUN*NUMBER_OF_UNIQUE_RUNS + SHARED_IMAGES_PER_SHARED_RUN
-
-#: the names of the database root directories
-FIGRAM_DATABASE_KEY = "SCENES_700x700"
-SUN_DATABASE_KEY = "SUN397"
-
+from . import numpy
+from . import gist
+from . import CONSTANTS
 
 def image_threshold_function(image_shape):
 	"""Function used to filter images based on size
@@ -35,7 +17,7 @@ def image_threshold_function(image_shape):
 	Returns:
 		bool: True or false, depending on if image size meets required thresholds
 	"""
-	if image_shape[1] >= PIXEL_HEIGHT_THRESHOLD and image_shape[0] >= PIXEL_WIDTH_THRESHOLD:
+	if image_shape[1] >= CONSTANTS.PIXEL_HEIGHT_THRESHOLD and image_shape[0] >= CONSTANTS.PIXEL_WIDTH_THRESHOLD:
 		return True
 	else:
 		return False
@@ -97,7 +79,7 @@ class Processor:
 
 		#: for each image path in the list
 		# change  'all_files' to 'all_files[:3000]' to limit to 3000 images
-		for image_file in all_files:
+		for image_file in all_files[:3000]:
 			#: put the images' relevant directory information in a list
 			rel_path = os.path.relpath(image_file, common_path)			 
 			dir_list = rel_path.split(os.sep) 
@@ -200,7 +182,7 @@ class Processor:
 		out_images = os.path.abspath(os.path.join(out_root, 'cropped'))
 
 
-		key_list = [*list(self.thresholded_classes[FIGRAM_DATABASE_KEY].keys()),
+		key_list = [*list(self.thresholded_classes[CONSTANTS.FIGRAM_DATABASE_KEY].keys()),
 			*sorted( list(self.thresholded_classes_merged.keys()), 
 				key = lambda ckey: len(list(self.thresholded_classes_merged[ckey].keys())),
 				reverse = True
@@ -210,41 +192,59 @@ class Processor:
 		cropped_image_count = 0 
 
 		for img_class in class_order_descending:
-			if(len(self.thresholded_classes_merged[img_class].keys())>(NUMBER_OF_PARTICIPANTS+NUMBER_OF_UNIQUE_RUNS)):
+			if(len(self.thresholded_classes_merged[img_class].keys())>(CONSTANTS.NUMBER_OF_PARTICIPANTS+CONSTANTS.NUMBER_OF_UNIQUE_RUNS)):
 				for img_name in self.thresholded_classes_merged[img_class]:
 					outpath = os.path.abspath(os.path.join(out_images, img_class))
 					if not os.path.exists(outpath):
 						os.makedirs(outpath)
 
-					if FIGRAM_DATABASE_KEY in self.thresholded_classes_merged[img_class][img_name]:
-						shutil.copy(self.thresholded_classes_merged[img_class][img_name][FIGRAM_DATABASE_KEY], 
+					if CONSTANTS.FIGRAM_DATABASE_KEY in self.thresholded_classes_merged[img_class][img_name]:
+						shutil.copy(self.thresholded_classes_merged[img_class][img_name][CONSTANTS.FIGRAM_DATABASE_KEY], 
 							outpath						
 						)
-					elif SUN_DATABASE_KEY in self.thresholded_classes_merged[img_class][img_name]:
-						with Image.open(self.thresholded_classes_merged[img_class][img_name][SUN_DATABASE_KEY]) as image:
+					elif CONSTANTS.SUN_DATABASE_KEY in self.thresholded_classes_merged[img_class][img_name]:
+						with Image.open(self.thresholded_classes_merged[img_class][img_name][CONSTANTS.SUN_DATABASE_KEY]) as image:
 
 							aspect = image.size[0]/image.size[1]
 							resized =None
 							if aspect >= 1:
-								resized = image.resize((int(PIXEL_WIDTH_THRESHOLD*aspect), PIXEL_WIDTH_THRESHOLD))
+								resized = image.resize((int(CONSTANTS.PIXEL_WIDTH_THRESHOLD*aspect), CONSTANTS.PIXEL_WIDTH_THRESHOLD))
 							else:
-								resized = image.resize((PIXEL_WIDTH_THRESHOLD, int(PIXEL_WIDTH_THRESHOLD/aspect)))
+								resized = image.resize((CONSTANTS.PIXEL_WIDTH_THRESHOLD, int(CONSTANTS.PIXEL_WIDTH_THRESHOLD/aspect)))
 
-							extra_width = resized.size[0] - PIXEL_WIDTH_THRESHOLD
-							extra_height = resized.size[1] - PIXEL_HEIGHT_THRESHOLD
+							extra_width = resized.size[0] - CONSTANTS.PIXEL_WIDTH_THRESHOLD
+							extra_height = resized.size[1] - CONSTANTS.PIXEL_HEIGHT_THRESHOLD
 							
 							left = random.randrange(extra_width+1)
 							top = random.randrange(extra_height+1)
-							right = left + PIXEL_WIDTH_THRESHOLD
-							bottom = top + PIXEL_HEIGHT_THRESHOLD
+							right = left + CONSTANTS.PIXEL_WIDTH_THRESHOLD
+							bottom = top + CONSTANTS.PIXEL_HEIGHT_THRESHOLD
 
 							cropped_img = resized.crop((left, top, right, bottom))
 
+
 							cropped_img.convert('RGB').save(os.path.join(outpath, img_name))
 							cropped_image_count = cropped_image_count + 1
-				if cropped_image_count > CROPPED_IMAGE_LIMIT:
+				if cropped_image_count > CONSTANTS.CROPPED_IMAGE_LIMIT:
 					break
 
+	def calculate_gist_features(self, out_root):
+		all_files = glob.glob( os.path.join(out_root, '{0}{1}**{1}*.jpg'.format(self.__path, os.sep)), recursive = True)
+		gistf = numpy.ones((960, len(all_files)))
+		filled = 0
+		for img_name in all_files:
+			with Image.open(img_name) as img:
+			    current = gist.extract(numpy.array(img))
+			    gistf[:, filled] = current
+
+			    #save current
+			    h5f = h5py.File(img_name[:-3]+'h5', 'w')
+			    h5f.create_dataset('GistFeatures', data=current)
+			    h5f.close()
+			    filled += 1
+		h5f = h5py.File(os.path.join(out_root, "GistFeatures_all.h5"), 'w')
+		h5f.create_dataset('GistFeatures', data=gistf)
+		h5f.close()
 
 
 

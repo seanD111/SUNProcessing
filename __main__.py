@@ -39,6 +39,7 @@ if __name__ == '__main__':
 			sun_processor.print_class_information(args['log'])
 		if 'crop' in args:
 			sun_processor.crop_thresholded_images(args['crop'])
+			sun_processor.calculate_gist_features(args['crop'])
 
 	else:
 		print('Run SUNProcessing with -h to see possible arguments')	
